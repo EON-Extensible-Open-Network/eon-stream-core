@@ -6,57 +6,78 @@
 
 //! # EON Stream core
 //!
-//! The parts of EON Stream that decide *what* to do. Moving bytes is `eon-stream-engine`;
-//! drawing pixels is `eon-stream-app`.
+//! The parts of EON Stream that decide *what* to do. Moving bytes is
+//! `eon-stream-engine`; drawing pixels is `eon-stream-app`.
 //!
-//! This crate has no user interface, no player, and no torrent engine. A dependency
-//! on a GUI toolkit here is a design failure, not a convenience.
+//! This crate has no user interface, no player, no torrent engine, and performs
+//! **no I/O of its own** — it asks an [`HttpClient`] for bytes. A dependency on
+//! a GUI toolkit here is a design failure, not a convenience.
 //!
-//! ## Status
+//! ## What works today
 //!
-//! Faz 0 skeleton. The module layout below is the intended shape; most of it is not
-//! written yet. Two decisions are still open and are tracked in the project plan:
-//! the protocol layer (madde 1) and the sandbox for code-executing modules (madde 4).
+//! Adding an addon and browsing it: resolve an address, fetch and validate the
+//! manifest, list catalogues, page through a catalogue, fetch metadata, and
+//! collect playable sources across every installed addon.
 //!
-//! ## Invariants this crate must uphold
+//! ```no_run
+//! use eon_stream_core::{AddonClient, AddonRegistry, http::FixtureClient};
 //!
-//! * First-party modules use the same API as community modules (madde 3). Enforced in
-//!   CI, not merely intended.
-//! * Nothing is granted to a module implicitly: no ambient filesystem access, no
-//!   ambient network access. See `docs/module-abi.md` in `eon-stream-spec`.
-//! * An addon URL never leaves the device and is never exposed to a module: a
-//!   configured addon URL can carry credentials.
-//! * A revoked or downgraded version is refused, and the user is told why
-//!   (madde 34, 39).
-//! * No telemetry. Not off-by-default -- absent (madde 36).
+//! // In the application this is a real HTTP client; in tests it is a fixture
+//! // set, which is how the compatibility suite avoids depending on anyone
+//! // else's uptime.
+//! let http = FixtureClient::new();
+//! let client = AddonClient::new(&http);
+//! let mut registry = AddonRegistry::new();
+//!
+//! let addon = client.install(&mut registry, "https://addon.example.org/manifest.json")?;
+//! for catalog in &addon.manifest.catalogs {
+//!     let page = client.catalog(&addon, &catalog.content_type, &catalog.id, &[])?;
+//!     for item in page {
+//!         println!("{}", item.display_name());
+//!     }
+//! }
+//!
+//! let found = client.streams_from_all(&registry, "movie", "tt0111161");
+//! println!("{} sources, {} addons failed", found.total(), found.failures.len());
+//! # Ok::<(), eon_stream_core::Error>(())
+//! ```
+//!
+//! ## Invariants this crate upholds
+//!
+//! * **An addon address never leaves the device** and is never exposed to a
+//!   module. A configured addon URL can carry credentials in its path, so it is
+//!   not logged, not put in errors, and not present in [`AddonSummary`].
+//! * **A resource the manifest does not declare is never requested.**
+//! * **Failures are per addon.** One broken addon never empties a merged result
+//!   (madde 1).
+//! * **Addon responses are untrusted input.** Status and size are checked;
+//!   malformed data is an ordinary error, never a panic. `unwrap` and `panic`
+//!   are denied crate-wide: a panic in the module manager takes the whole
+//!   application down with it.
+//! * **No telemetry.** Not off-by-default — absent (madde 36).
+//!
+//! ## Still to come
+//!
+//! Module management, signature verification and revocation, settings and the
+//! updater. Their decisions are open in the plan: the protocol layer question
+//! (madde 1) is being answered by this implementation, and the module sandbox
+//! (madde 4) does not block v1.
 
 #![forbid(unsafe_code)]
 
-/// Module manifests, validation against the `eon-stream-spec` schemas, and the
-/// capability model.
-pub mod manifest {}
+pub mod address;
+pub mod client;
+pub mod error;
+pub mod http;
+pub mod manifest;
+pub mod registry;
+pub(crate) mod serde_lax;
+pub mod types;
 
-/// Install, update, remove and dependency resolution for modules; permission
-/// enforcement at the Module ABI boundary.
-pub mod modules {}
-
-/// Remote addon protocol client: manifest, catalog, meta, stream, subtitles.
-/// Per-addon failure isolation lives here -- one bad addon must not empty a
-/// merged catalogue.
-pub mod addons {}
-
-/// Ed25519 signature verification and the revocation list.
-///
-/// Revocation is not optional: a signature without revocation proves who shipped
-/// a malicious version, it does not stop it.
-pub mod signing {}
-
-/// User settings and their persistence. Local only.
-pub mod settings {}
-
-/// Update checks and the rules that make the updater safe: signature required,
-/// version never goes backwards, staged rollout, emergency stop (madde 39).
-pub mod updater {}
-
-/// Errors surfaced to the host application.
-pub mod error {}
+pub use address::AddonAddress;
+pub use client::{AddonClient, Merged};
+pub use error::{AddonFailure, Error, Result};
+pub use http::{HttpClient, HttpResponse, Limits};
+pub use manifest::{AddonManifest, Catalog, Resource, ADDON_API_MAJOR};
+pub use registry::{AddonRegistry, AddonSummary, InstalledAddon};
+pub use types::{Meta, MetaPreview, Stream, StreamSource, Subtitle, Video};

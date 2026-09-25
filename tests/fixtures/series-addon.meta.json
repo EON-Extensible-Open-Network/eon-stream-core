@@ -1,0 +1,12 @@
+{
+  "meta": {
+    "id": "tt0903747",
+    "type": "series",
+    "name": "Breaking Bad",
+    "videos": [
+      { "id": "tt0903747:1:1", "title": "Pilot", "season": 1, "episode": 1, "released": "2008-01-20T00:00:00.000Z" },
+      { "id": "tt0903747:1:2", "season": 1, "episode": 2 },
+      { "id": "tt0903747:2:1", "title": "Seven Thirty-Seven", "season": 2, "episode": 1 }
+    ]
+  }
+}

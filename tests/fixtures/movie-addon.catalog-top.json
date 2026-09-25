@@ -1,0 +1,20 @@
+{
+  "metas": [
+    {
+      "id": "tt0111161",
+      "type": "movie",
+      "name": "The Shawshank Redemption",
+      "poster": "https://images.example.org/tt0111161.jpg",
+      "posterShape": "poster",
+      "releaseInfo": "1994",
+      "imdbRating": "9.3"
+    },
+    {
+      "id": "tt0068646",
+      "type": "movie",
+      "name": "The Godfather",
+      "releaseInfo": "1972"
+    },
+    { "id": "tt0071562", "type": "movie" }
+  ]
+}

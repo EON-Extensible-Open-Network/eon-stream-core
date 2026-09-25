@@ -2,7 +2,7 @@
 name = "eon-stream-core"
 version = "0.0.0"
 edition = "2021"
-rust-version = "1.83"
+rust-version = "1.98"
 description = "EON Stream core: module manager, addon protocol client, manifest and signature verification."
 repository = "https://github.com/EON-Extensible-Open-Network/eon-stream-core"
 license = "GPL-3.0-or-later"
@@ -11,8 +11,14 @@ categories = ["multimedia"]
 publish = false
 
 [dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
 
 [dev-dependencies]
+# Used only by examples, so the library itself pulls in no network stack and
+# stays testable with no I/O at all (see src/http.rs).
+ureq = "2"
 
 [lints.rust]
 unsafe_code = "forbid"
@@ -21,6 +27,9 @@ unreachable_pub = "warn"
 
 [lints.clippy]
 all = { level = "deny", priority = -1 }
+# Advisory, not blocking. Pedantic contains style opinions (doc_markdown and
+# friends) that are useful as hints but should not fail a build; CI therefore
+# does not pass -D warnings. The lints that matter are denied explicitly below.
 pedantic = { level = "warn", priority = -1 }
 # A panic in the module manager takes the whole application down with it.
 unwrap_used = "deny"

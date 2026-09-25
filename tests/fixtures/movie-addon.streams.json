@@ -1,0 +1,9 @@
+{
+  "streams": [
+    { "name": "1080p", "title": "shawshank.1080p.mkv\n4.2 GB", "url": "https://cdn.example.org/a.mkv" },
+    { "name": "720p BT", "title": "shawshank.720p", "infoHash": "aaaabbbbccccddddeeeeffff0000111122223333", "fileIdx": 0 },
+    { "name": "trailer", "ytId": "6hB3S9bIaco" },
+    { "name": "watch on site", "externalUrl": "https://example.org/watch/tt0111161" },
+    { "name": "broken entry" }
+  ]
+}

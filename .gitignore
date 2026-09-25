@@ -29,3 +29,6 @@ desktop.ini
 /scratch/
 /tmp/
 *.local.*
+
+# Written by examples/browse.rs when it is run from the repo root.
+/eon-addons.json

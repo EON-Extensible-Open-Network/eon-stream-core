@@ -1,0 +1,23 @@
+{
+  "id": "org.eon.test.movies",
+  "version": "1.4.2",
+  "name": "Test Movies",
+  "description": "A recorded addon used by the compatibility suite. Not a real service.",
+  "resources": ["catalog", "meta", "stream"],
+  "types": ["movie"],
+  "catalogs": [
+    {
+      "type": "movie",
+      "id": "top",
+      "name": "Top Movies",
+      "extra": [
+        { "name": "search" },
+        { "name": "genre", "options": ["Drama", "Sci-Fi"] },
+        { "name": "skip" }
+      ]
+    },
+    { "type": "movie", "id": "featured" }
+  ],
+  "idPrefixes": ["tt"],
+  "behaviorHints": { "adult": false, "p2p": false, "configurable": false }
+}
