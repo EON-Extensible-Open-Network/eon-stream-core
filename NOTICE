@@ -1,0 +1,19 @@
+EON Stream Core
+Copyright (c) 2026 EON contributors
+
+This product is licensed under GPL-3.0-or-later WITH the EON Stream Module ABI
+Exception 1.0 (see LICENSE and LICENSE-EXCEPTION.md).
+
+Third-party components
+----------------------
+This repository intends to depend on the following components. Each keeps its own
+license; this list is maintained as dependencies are actually added, and is verified
+in CI by `cargo-deny` (see deny.toml).
+
+  stremio-core          MIT          -- evaluated, not yet a dependency (madde 1)
+  serde / serde_json    MIT OR Apache-2.0
+  jsonschema            MIT
+  ed25519-dalek         BSD-3-Clause -- signature verification (madde 34)
+  reqwest               MIT OR Apache-2.0
+
+Full dependency license inventory: `cargo deny check licenses`.

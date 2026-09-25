@@ -1,0 +1,29 @@
+[package]
+name = "eon-stream-core"
+version = "0.0.0"
+edition = "2021"
+rust-version = "1.83"
+description = "EON Stream core: module manager, addon protocol client, manifest and signature verification."
+repository = "https://github.com/EON-Extensible-Open-Network/eon-stream-core"
+license = "GPL-3.0-or-later"
+keywords = ["media", "addon", "modular", "stremio"]
+categories = ["multimedia"]
+publish = false
+
+[dependencies]
+
+[dev-dependencies]
+
+[lints.rust]
+unsafe_code = "forbid"
+missing_docs = "warn"
+unreachable_pub = "warn"
+
+[lints.clippy]
+all = { level = "deny", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+# A panic in the module manager takes the whole application down with it.
+unwrap_used = "deny"
+expect_used = "warn"
+panic = "deny"
+todo = "warn"
