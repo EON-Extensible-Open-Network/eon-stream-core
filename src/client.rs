@@ -20,9 +20,12 @@ use serde::de::DeserializeOwned;
 
 use crate::{
     http::{HttpClient, HttpResponse},
-    types::{MetaResponse, MetasResponse, StreamsResponse, SubtitlesResponse},
+    types::{
+        AddonCatalogEntry, AddonCatalogResponse, MetaResponse, MetasResponse, StreamsResponse,
+        SubtitlesResponse,
+    },
     AddonAddress, AddonFailure, AddonManifest, AddonRegistry, Error, InstalledAddon, Meta,
-    MetaPreview, Result, Stream, Subtitle,
+    MetaPreview, Result, Stream, Subtitle, SubtitleMatch,
 };
 
 /// Results of a query that spanned several addons.
@@ -224,6 +227,122 @@ impl<C: HttpClient> AddonClient<C> {
         })
     }
 
+    /// Fetch subtitles with everything the source told us about the file.
+    ///
+    /// A subtitle addon matches on file name, hash and size. Sending them is the
+    /// difference between "38 tracks for this film" and "the right track for
+    /// this exact release" — so when a source supplies them, they are passed on.
+    ///
+    /// # Errors
+    ///
+    /// As [`Self::subtitles`].
+    pub fn subtitles_for_source(
+        &self,
+        addon: &InstalledAddon,
+        content_type: &str,
+        id: &str,
+        matching: SubtitleMatch<'_>,
+    ) -> Result<Vec<Subtitle>> {
+        self.require_resource(addon, "subtitles", content_type)?;
+        let owned = matching.as_extra();
+        let extra: Vec<(&str, &str)> = owned.iter().map(|(k, v)| (*k, v.as_str())).collect();
+        let url = addon
+            .address
+            .resource_url_with_extra("subtitles", content_type, id, &extra);
+        let response: SubtitlesResponse = self.get_json(&url)?;
+        Ok(response.subtitles)
+    }
+
+    /// Subtitles from every addon, told what file is playing.
+    pub fn subtitles_for_source_from_all(
+        &self,
+        registry: &AddonRegistry,
+        content_type: &str,
+        id: &str,
+        matching: SubtitleMatch<'_>,
+    ) -> Merged<Subtitle> {
+        self.merge(registry, "subtitles", content_type, id, |addon| {
+            self.subtitles_for_source(addon, content_type, id, matching)
+        })
+    }
+
+    /// Addons this addon advertises.
+    ///
+    /// The manifests that come back are **hints**. Nothing is installed from
+    /// them: installing re-fetches the manifest from the addon itself, because an
+    /// addon must not be able to lie about what another addon does.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::ResourceNotOffered`] when the addon serves no `addon_catalog`,
+    /// plus any transport, status or JSON error.
+    pub fn addon_catalog(
+        &self,
+        addon: &InstalledAddon,
+        content_type: &str,
+        catalog_id: &str,
+    ) -> Result<Vec<AddonCatalogEntry>> {
+        if addon
+            .manifest
+            .resources
+            .iter()
+            .all(|r| r.name() != "addon_catalog")
+        {
+            return Err(Error::ResourceNotOffered {
+                addon: addon.id().to_owned(),
+                resource: "addon_catalog",
+                content_type: content_type.to_owned(),
+            });
+        }
+        let url = addon
+            .address
+            .resource_url("addon_catalog", content_type, catalog_id);
+        let response: AddonCatalogResponse = self.get_json(&url)?;
+        Ok(response.addons)
+    }
+
+    /// Metadata for one item, merged across every addon that has some.
+    ///
+    /// Addons disagree, and the disagreements are not random: a specialist addon
+    /// often has episodes a general one lacks, while the general one has the
+    /// better description. So rather than picking a winner:
+    ///
+    /// * The **first addon in the user's order** supplies the base record. Their
+    ///   ordering is a stated preference.
+    /// * A later addon **fills gaps only** — it never overwrites a field that is
+    ///   already populated.
+    /// * Episode lists are **unioned** by episode id, which is what actually
+    ///   makes merging worth doing.
+    pub fn meta_merged(
+        &self,
+        registry: &AddonRegistry,
+        content_type: &str,
+        id: &str,
+    ) -> (Option<Meta>, Vec<String>, Vec<AddonFailure>) {
+        let mut merged: Option<Meta> = None;
+        let mut contributors = Vec::new();
+        let mut failures = Vec::new();
+
+        for addon in registry.candidates_for("meta", content_type, id) {
+            match self.meta(addon, content_type, id) {
+                Ok(meta) => {
+                    contributors.push(addon.id().to_owned());
+                    match &mut merged {
+                        None => merged = Some(meta),
+                        Some(base) => merge_into(base, meta),
+                    }
+                }
+                Err(error) => failures.push(AddonFailure {
+                    addon_id: addon.id().to_owned(),
+                    addon_name: addon.manifest.name.clone(),
+                    error,
+                }),
+            }
+        }
+
+        (merged, contributors, failures)
+    }
+
     /// Run a per-addon operation over every candidate, collecting both halves.
     fn merge<T, F>(
         &self,
@@ -300,4 +419,46 @@ impl<C: HttpClient> AddonClient<C> {
         }
         Ok(())
     }
+}
+
+/// Fill gaps in `base` from `extra`, without overwriting anything.
+///
+/// Gap-filling rather than last-write-wins: the addon the user put first stays
+/// authoritative, and a later addon can only add what the first did not have.
+fn merge_into(base: &mut Meta, extra: Meta) {
+    fn fill(target: &mut Option<String>, source: Option<String>) {
+        if target.as_deref().is_none_or(str::is_empty) {
+            *target = source;
+        }
+    }
+
+    fill(&mut base.name, extra.name);
+    fill(&mut base.description, extra.description);
+    fill(&mut base.poster, extra.poster);
+    fill(&mut base.background, extra.background);
+    fill(&mut base.logo, extra.logo);
+    fill(&mut base.release_info, extra.release_info);
+    fill(&mut base.runtime, extra.runtime);
+
+    if base.genres.is_empty() {
+        base.genres = extra.genres;
+    }
+    if base.cast.is_empty() {
+        base.cast = extra.cast;
+    }
+    if base.director.is_empty() {
+        base.director = extra.director;
+    }
+
+    // Episodes are unioned, not replaced: a specialist addon often knows about
+    // episodes a general one has not listed, and losing them would make merging
+    // pointless.
+    let known: std::collections::HashSet<String> =
+        base.videos.iter().map(|v| v.id.clone()).collect();
+    for video in extra.videos {
+        if !known.contains(&video.id) {
+            base.videos.push(video);
+        }
+    }
+    base.videos.sort_by_key(|v| (v.season, v.episode));
 }

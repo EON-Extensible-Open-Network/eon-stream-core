@@ -124,6 +124,37 @@ impl AddonAddress {
         )
     }
 
+    /// URL for any resource request with extra parameters.
+    ///
+    /// The protocol puts extras in their own path segment for every resource, not
+    /// just catalogues — which is how a subtitles request carries the file name
+    /// and hash it should match on.
+    #[must_use]
+    pub fn resource_url_with_extra(
+        &self,
+        resource: &str,
+        content_type: &str,
+        id: &str,
+        extra: &[(&str, &str)],
+    ) -> String {
+        if extra.is_empty() {
+            return self.resource_url(resource, content_type, id);
+        }
+        let encoded = extra
+            .iter()
+            .map(|(k, v)| format!("{}={}", encode_segment(k), encode_segment(v)))
+            .collect::<Vec<_>>()
+            .join("&");
+        format!(
+            "{}/{}/{}/{}/{}.json",
+            self.base,
+            encode_segment(resource),
+            encode_segment(content_type),
+            encode_segment(id),
+            encoded
+        )
+    }
+
     /// The base URL.
     ///
     /// Treat the result as secret: it may contain configuration credentials, so

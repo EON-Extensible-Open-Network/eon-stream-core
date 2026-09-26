@@ -68,8 +68,11 @@
 pub mod address;
 pub mod client;
 pub mod error;
+pub mod health;
+pub mod history;
 pub mod http;
 pub mod manifest;
+pub mod ranking;
 pub mod registry;
 pub(crate) mod serde_lax;
 pub mod types;
@@ -77,7 +80,15 @@ pub mod types;
 pub use address::AddonAddress;
 pub use client::{AddonClient, Merged};
 pub use error::{AddonFailure, Error, Result};
+pub use health::{AddonHealth, HealthTracker};
+pub use history::{WatchEntry, WatchHistory};
 pub use http::{HttpClient, HttpResponse, Limits};
 pub use manifest::{AddonManifest, Catalog, Resource, ADDON_API_MAJOR};
+pub use ranking::{
+    rank, Codec, DynamicRange, RankedStream, RankingPreferences, Resolution, StreamFacts,
+};
 pub use registry::{AddonRegistry, AddonSummary, InstalledAddon};
-pub use types::{Meta, MetaPreview, Stream, StreamSource, Subtitle, Video};
+pub use types::{
+    Meta, MetaPreview, ProxyHeaders, Stream, StreamBehaviorHints, StreamSource, Subtitle,
+    SubtitleMatch, Video,
+};
