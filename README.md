@@ -41,16 +41,46 @@ time something is urgent — and then the extension point is a second-class citi
 
 ## Status
 
-**Faz 0.** A skeleton. The two decisions that shape this crate are still open:
+**Faz 0, and the responsibilities above are now implemented.** 203 library tests and 18
+compatibility tests, all offline.
 
-1. **Protocol layer (madde 1)** — use `stremio-core` as a library, or implement the protocol
-   directly. The protocol itself is small (manifest + four JSON endpoints); `stremio-core`
-   is a larger, opinionated layer that also carries Stremio's own state model and account
-   client. Decision criterion: if five popular addons resolve end to end within a week of
-   writing it ourselves, we write it ourselves.
-2. **Sandbox for code-executing modules (madde 4)** — WebAssembly (wasmtime) with
-   capability-based host functions, or an isolated webview with an IPC allowlist. v1 ships
-   declarative modules only, so this does not block v1.
+Both decisions that shaped this crate are settled:
+
+1. **Protocol layer (madde 1): ours.** `stremio-core` is not a dependency. Verified against
+   Cinemeta and OpenSubtitles v3; the protocol turned out to be four endpoints and plain
+   JSON, while `stremio-core` would also have brought Stremio's state model, library sync
+   and account client, and with them Stremio's product decisions.
+2. **Sandbox for code-executing modules (madde 4): still open**, and it does not block v1.
+   wasmtime with capability-based host functions, against an isolated webview with an IPC
+   allowlist. Until one exists, `modules` refuses a `wasm` module **by name** rather than
+   pretending not to recognise it — the contract defines the runtime, and this build does
+   not execute it.
+
+### What this means in practice today
+
+**No key in the signing hierarchy exists**, so every build ships with an empty trust set
+and installs nothing. That is designed behaviour, not a defect: custody belongs to a legal
+entity that does not exist yet (madde 30), and minting a root key for one person to hold on
+a laptop would produce signatures that look like the real thing.
+
+The mechanism is complete and exercised rather than theoretical. A client reads its trust
+set from `eon-trust.json` beside the executable, so anyone can mint a key, sign a module and
+watch the whole chain run — signature verified against a rotating trust set, content hash
+recomputed here and never taken from the caller, permissions shown before installing,
+tampered content refused, downgrade refused, revocation applied. That file is a statement of
+what one machine trusts, which is also how an institution will enrol its own key. There is
+no flag that skips verification.
+
+### Two invariants worth stating out loud
+
+**This crate verifies and never signs.** The signing half of `ed25519-dalek` is switched
+off, because a client that can also sign is a client whose compromise produces valid
+artefacts.
+
+**There is no telemetry setting.** Not off by default — absent (madde 36). A test walks the
+serialised settings document and fails if a key matching telemetry, analytics, tracking,
+metrics or reporting ever appears, and a second test proves that check is not vacuous. Both
+run as named checks in CI.
 
 ## Build
 

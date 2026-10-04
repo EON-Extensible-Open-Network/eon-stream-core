@@ -21,10 +21,16 @@
 
 use std::collections::HashSet;
 
+use serde::{Deserialize, Serialize};
+
 use crate::types::Stream;
 
 /// Video resolution, as far as it can be read from a label.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+///
+/// Serialisable because it is a stored preference (`minimum_resolution`): see
+/// [`crate::settings`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum Resolution {
     /// Below 720p, or a label saying `cam`, `ts`, `screener`.
     Low,
@@ -190,7 +196,8 @@ impl StreamFacts {
 }
 
 /// How to order sources.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields, rename_all = "camelCase")]
 pub struct RankingPreferences {
     /// Prefer higher resolution.
     pub prefer_higher_resolution: bool,

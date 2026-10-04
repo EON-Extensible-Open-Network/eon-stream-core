@@ -77,6 +77,17 @@ impl<C: HttpClient> AddonClient<C> {
         Self { http }
     }
 
+    /// The transport this client was built with.
+    ///
+    /// Exposed so a host that already configured one — user agent, timeouts,
+    /// certificate policy — can reuse it for the things this crate does not
+    /// fetch itself, such as a release manifest or a revocation list. Handing
+    /// out a second, differently configured client is how one of them ends up
+    /// without the limits.
+    pub const fn http(&self) -> &C {
+        &self.http
+    }
+
     /// Fetch and validate a manifest from an address the user supplied.
     ///
     /// # Errors

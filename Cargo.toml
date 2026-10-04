@@ -14,6 +14,14 @@ publish = false
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "2"
+# Signature verification (madde 34). Ed25519 is the one algorithm the contract
+# defines, and these are the maintained pure-Rust implementations of it: no
+# OpenSSL to link, no C toolchain, nothing platform-specific in the build. The
+# default features pull in signing and key generation, which this crate must
+# never do -- it verifies. `rand_core` and the signing half stay out.
+ed25519-dalek = { version = "3", default-features = false }
+sha2 = { version = "0.11", default-features = false }
+base64 = { version = "0.23", default-features = false, features = ["alloc"] }
 
 [dev-dependencies]
 # Used only by examples, so the library itself pulls in no network stack and

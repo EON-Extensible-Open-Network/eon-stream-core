@@ -15,9 +15,22 @@
 //!
 //! ## What works today
 //!
-//! Adding an addon and browsing it: resolve an address, fetch and validate the
-//! manifest, list catalogues, page through a catalogue, fetch metadata, and
-//! collect playable sources across every installed addon.
+//! **Addons.** Resolve an address, fetch and validate the manifest, list
+//! catalogues, page through one, fetch metadata, and collect playable sources
+//! across every installed addon.
+//!
+//! **Modules.** Install, update, remove, enable and order them, with Ed25519
+//! signature verification against a rotating trust set, version-scoped
+//! revocation, dependency resolution and a load order ([`modules`]).
+//!
+//! **Themes.** Declarative colour, type and spacing documents that carry no
+//! code, resolved to flat tokens and checked against WCAG contrast
+//! requirements ([`theme`]).
+//!
+//! **Settings, updates and messages.** Typed settings with no reporting key
+//! anywhere in them ([`settings`]), a release checker that refuses a
+//! downgrade ([`update`]), and Turkish and English message catalogues
+//! ([`i18n`]).
 //!
 //! ```no_run
 //! use eon_stream_core::{AddonClient, AddonRegistry, http::FixtureClient};
@@ -56,12 +69,22 @@
 //!   application down with it.
 //! * **No telemetry.** Not off-by-default — absent (madde 36).
 //!
+//! * **Nothing is installed unsigned**, first-party modules included
+//!   (madde 3), and nothing executes: v1 installs declarative modules only,
+//!   because there is no sandbox yet and a security claim without one would
+//!   not be honest (madde 4).
+//! * **A version never goes backwards**, for modules or for the application
+//!   itself (madde 39).
+//! * **This crate verifies and never signs.** The signing half of the
+//!   dependency is switched off; a client that can also sign is a client
+//!   whose compromise produces valid artefacts.
+//!
 //! ## Still to come
 //!
-//! Module management, signature verification and revocation, settings and the
-//! updater. Their decisions are open in the plan: the protocol layer question
-//! (madde 1) is being answered by this implementation, and the module sandbox
-//! (madde 4) does not block v1.
+//! The module sandbox — wasmtime with capability host functions, against an
+//! isolated webview — which is madde 4 and does not block v1. Until it
+//! exists, [`modules`] refuses a `wasm` module by name rather than pretending
+//! not to recognise it.
 
 #![forbid(unsafe_code)]
 
@@ -71,11 +94,21 @@ pub mod error;
 pub mod health;
 pub mod history;
 pub mod http;
+pub mod i18n;
 pub mod manifest;
+pub mod module;
+pub mod modules;
 pub mod ranking;
 pub mod registry;
+pub mod revocation;
+pub mod semver;
 pub(crate) mod serde_lax;
+pub mod settings;
+pub mod signature;
+pub mod theme;
+pub mod time;
 pub mod types;
+pub mod update;
 
 pub use address::AddonAddress;
 pub use client::{AddonClient, Merged};
@@ -83,12 +116,27 @@ pub use error::{AddonFailure, Error, Result};
 pub use health::{AddonHealth, HealthTracker};
 pub use history::{WatchEntry, WatchHistory};
 pub use http::{HttpClient, HttpResponse, Limits};
+pub use i18n::{Catalog as MessageCatalog, Messages};
 pub use manifest::{AddonManifest, Catalog, Resource, ADDON_API_MAJOR};
+pub use module::{
+    BuildProfile, ModuleKind, ModuleManifest, Permission, Platform, RuntimeKind, SignatureEnvelope,
+    MODULE_API_MAJOR, MODULE_API_MINOR,
+};
+pub use modules::{DisabledReason, InstalledModule, ModuleStore, PreparedInstall};
 pub use ranking::{
     rank, Codec, DynamicRange, RankedStream, RankingPreferences, Resolution, StreamFacts,
 };
 pub use registry::{AddonRegistry, AddonSummary, InstalledAddon};
+pub use revocation::{
+    RevocationAction, RevocationFreshness, RevocationList, RevocationReason, RevocationStatus,
+    RevocationStore,
+};
+pub use semver::{Version, VersionRange};
+pub use settings::{Settings, UpdateChannel};
+pub use signature::{Artefact, KeyPurpose, Subject, TrustFreshness, TrustStore, TrustedKey};
+pub use theme::{ColorToken, ResolvedTheme, ThemeBase, ThemeDocument};
 pub use types::{
     Meta, MetaPreview, ProxyHeaders, Stream, StreamBehaviorHints, StreamSource, Subtitle,
     SubtitleMatch, Video,
 };
+pub use update::{Arch, Artifact, ReleaseManifest, UpdateCheck, UpdateDecision};

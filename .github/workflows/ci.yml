@@ -35,6 +35,50 @@ jobs:
       - run: cargo clippy --all-targets --all-features
       - run: cargo test --all-features
 
+  invariants:
+    name: project invariants
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: rustup show
+      - uses: Swatinem/rust-cache@v2
+
+      # These all run inside `cargo test` already. They are named separately
+      # here so that the claims this project makes in prose appear on the
+      # checks list as individual, legible signals -- "no telemetry" is easier
+      # to trust when it is a check somebody can point at than when it is a
+      # sentence in a README.
+
+      # v1 definition-of-done, item 7. Offline, over recorded fixtures: a suite
+      # that goes red because somebody else's server had a bad afternoon stops
+      # being trusted, and an untrusted suite is worse than none (madde 1).
+      - name: compatibility suite -- the addon protocol, offline
+        run: cargo test --test protocol
+
+      # madde 36. Not off by default -- absent. The test walks the serialised
+      # settings document and fails if a reporting key ever appears, so adding
+      # one is a build failure rather than a review someone has to catch.
+      - name: no telemetry, anywhere in the settings
+        run: cargo test --lib settings::tests::there_is_no_telemetry_setting
+      - name: and that check is not vacuous
+        run: cargo test --lib settings::tests::the_forbidden_key_check_actually_catches_something
+
+      # madde 40. A missing translation is a build failure for us and a silent
+      # English fallback for the user, which is the right way round.
+      - name: Turkish and English catalogues agree
+        run: cargo test --lib i18n::tests::the_turkish_catalogue_is_complete
+      - name: every message key the library names exists
+        run: cargo test --lib i18n::tests::every_key_the_library_names_exists
+
+      # madde 35. Shipping a default palette that fails the check theme authors
+      # are told to meet would make the check advice rather than a standard.
+      - name: built-in palettes meet WCAG AA
+        run: cargo test --lib theme::tests::both_builtin_palettes_pass_their_own_check
+
+      # madde 4, 22, 34, 39. The refusals the module manager exists for.
+      - name: signatures, revocation and the module manager
+        run: cargo test --lib -- signature:: revocation:: modules:: module::
+
   deny:
     name: licences · advisories
     runs-on: ubuntu-latest
