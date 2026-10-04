@@ -77,7 +77,9 @@ jobs:
 
       # madde 4, 22, 34, 39. The refusals the module manager exists for.
       - name: signatures, revocation and the module manager
-        run: cargo test --lib -- signature:: revocation:: modules:: module::
+        # Quoted: a plain YAML scalar cannot contain ": " or end in ":",
+        # and these filters do both.
+        run: "cargo test --lib -- signature:: revocation:: modules:: module::"
 
   deny:
     name: licences · advisories
