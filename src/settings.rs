@@ -69,6 +69,11 @@ pub struct PlaybackSettings {
     /// because this list becomes a process launch and a bare value there would
     /// be read by mpv as a file to play.
     pub player_arguments: Vec<String>,
+    /// How large subtitles are drawn, as a multiple of the player's own size:
+    /// 1 is the player's default, and 0.5 to 3 is accepted.
+    pub subtitle_scale: f64,
+    /// Start the next episode by itself when one ends.
+    pub autoplay_next: bool,
 }
 
 impl Default for PlaybackSettings {
@@ -80,6 +85,8 @@ impl Default for PlaybackSettings {
             start_muted: false,
             volume: 100,
             player_arguments: Vec::new(),
+            subtitle_scale: 1.0,
+            autoplay_next: true,
         }
     }
 }
@@ -287,6 +294,12 @@ impl Settings {
         }
         for argument in &self.playback.player_arguments {
             validate_player_argument(argument)?;
+        }
+        if !(0.5..=3.0).contains(&self.playback.subtitle_scale) {
+            return Err(Error::InvalidSettings(format!(
+                "playback.subtitleScale {} is outside 0.5-3",
+                self.playback.subtitle_scale
+            )));
         }
         if self.torrent.peer_limit == 0 || self.torrent.peer_limit > 1000 {
             return Err(Error::InvalidSettings(format!(
@@ -595,6 +608,29 @@ mod tests {
         assert!(settings.validate().is_err());
         settings.playback.resume_after_seconds = f64::INFINITY;
         assert!(settings.validate().is_err());
+    }
+
+    #[test]
+    fn a_subtitle_size_out_of_range_is_refused() {
+        let mut settings = Settings::default();
+        settings.playback.subtitle_scale = 0.4;
+        assert!(settings.validate().is_err());
+        settings.playback.subtitle_scale = 3.5;
+        assert!(settings.validate().is_err());
+        settings.playback.subtitle_scale = f64::NAN;
+        assert!(settings.validate().is_err());
+        settings.playback.subtitle_scale = 1.3;
+        assert!(settings.validate().is_ok());
+    }
+
+    #[test]
+    fn settings_from_before_the_subtitle_size_still_load() {
+        // A file written by an earlier build has neither field: both take
+        // their defaults rather than failing the whole file.
+        let settings = Settings::parse(r#"{"schemaVersion":0,"playback":{"volume":80}}"#).unwrap();
+        assert!((settings.playback.subtitle_scale - 1.0).abs() < f64::EPSILON);
+        assert!(settings.playback.autoplay_next);
+        assert_eq!(settings.playback.volume, 80);
     }
 
     #[test]
