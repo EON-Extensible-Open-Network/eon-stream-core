@@ -6,7 +6,9 @@
     "videos": [
       { "id": "tt0903747:1:1", "title": "Pilot", "season": 1, "episode": 1, "released": "2008-01-20T00:00:00.000Z" },
       { "id": "tt0903747:1:2", "season": 1, "episode": 2 },
-      { "id": "tt0903747:2:1", "title": "Seven Thirty-Seven", "season": 2, "episode": 1 }
+      { "id": "tt0903747:2:1", "title": "Seven Thirty-Seven", "season": 2, "episode": 1 },
+      { "id": "tt0903747:2:2", "name": "Grilled", "overview": "Walt and Jesse are held captive.", "season": 2, "episode": 2 },
+      { "id": "tt0903747:2:3", "title": "Bit by a Dead Bee", "name": "Breaking Bad", "season": 2, "episode": 3 }
     ]
   }
 }

@@ -334,6 +334,14 @@ fn reads_a_series_with_seasons() {
     assert_eq!(meta.season(1)[0].display_title(), "Pilot");
     // No title: fall back to SxxEyy rather than showing a raw id.
     assert_eq!(meta.season(1)[1].display_title(), "S01E02");
+    // Cinemeta writes the episode title as `name`, not `title`.
+    assert_eq!(meta.season(2)[1].display_title(), "Grilled");
+    assert_eq!(
+        meta.season(2)[1].overview.as_deref(),
+        Some("Walt and Jesse are held captive.")
+    );
+    // Both keys present is not a duplicate-field error, and `title` wins.
+    assert_eq!(meta.season(2)[2].display_title(), "Bit by a Dead Bee");
 }
 
 #[test]

@@ -177,6 +177,16 @@ pub struct Video {
     /// Title.
     #[serde(default)]
     pub title: Option<String>,
+    /// Title, as Cinemeta and most addons in the wild spell it.
+    ///
+    /// A separate field rather than a serde alias of `title`: an alias makes
+    /// an object that carries both keys a duplicate-field error, and one such
+    /// episode would lose the whole series.
+    #[serde(default)]
+    pub name: Option<String>,
+    /// What happens in it.
+    #[serde(default)]
+    pub overview: Option<String>,
     /// Season number.
     #[serde(default)]
     pub season: Option<u32>,
@@ -195,7 +205,11 @@ impl Video {
     /// Title for display, falling back to `SxxEyy` and then to the identifier.
     #[must_use]
     pub fn display_title(&self) -> String {
-        if let Some(title) = &self.title {
+        if let Some(title) = [&self.title, &self.name]
+            .into_iter()
+            .flatten()
+            .find(|title| !title.trim().is_empty())
+        {
             return title.clone();
         }
         match (self.season, self.episode) {

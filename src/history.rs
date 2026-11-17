@@ -263,6 +263,30 @@ impl WatchHistory {
         self.entries.remove(&Self::key(content_type, id)).is_some()
     }
 
+    /// Take something off "continue watching", keeping what was finished.
+    ///
+    /// For an episode that means every unfinished episode of its series: the
+    /// list shows one line per series, so removing only the newest episode
+    /// would put the one before it straight back in its place. Finished
+    /// episodes stay, because "watched" is still true and the episode list
+    /// still says so.
+    ///
+    /// Returns how many entries went.
+    pub fn stop_continuing(&mut self, content_type: &str, id: &str) -> usize {
+        let series = self
+            .get(content_type, id)
+            .and_then(|entry| entry.series_id.clone());
+        let before = self.entries.len();
+        self.entries.retain(|_, entry| {
+            let same = (entry.content_type == content_type && entry.id == id)
+                || series
+                    .as_deref()
+                    .is_some_and(|series| entry.series_id.as_deref() == Some(series));
+            !same || entry.is_finished()
+        });
+        before - self.entries.len()
+    }
+
     /// Forget everything.
     pub fn clear(&mut self) {
         self.entries.clear();
@@ -308,6 +332,46 @@ mod tests {
             addon_id: None,
             updated_at: updated,
         }
+    }
+
+    fn episode(id: &str, position: f64, updated: u64) -> WatchEntry {
+        WatchEntry {
+            content_type: "series".into(),
+            series_id: Some("tt1".into()),
+            ..entry(id, position, Some(3_000.0), updated)
+        }
+    }
+
+    #[test]
+    fn stop_continuing_takes_the_whole_series_off_and_keeps_what_was_finished() {
+        let mut history = WatchHistory::new();
+        history.record(episode("tt1:1:1", 2_990.0, 1)); // finished
+        history.record(episode("tt1:1:2", 1_000.0, 2)); // half-way
+        history.record(episode("tt1:1:3", 600.0, 3)); // newest, half-way
+        history.record(entry("film", 3_000.0, Some(6_000.0), 4));
+        assert_eq!(history.continue_watching(10).len(), 2);
+
+        assert_eq!(history.stop_continuing("series", "tt1:1:3"), 2);
+
+        let left: Vec<&str> = history
+            .continue_watching(10)
+            .iter()
+            .map(|e| e.id.as_str())
+            .collect();
+        assert_eq!(left, ["film"]);
+        assert!(history
+            .get("series", "tt1:1:1")
+            .is_some_and(WatchEntry::is_finished));
+    }
+
+    #[test]
+    fn stop_continuing_a_film_leaves_everything_else() {
+        let mut history = WatchHistory::new();
+        history.record(entry("a", 3_000.0, Some(6_000.0), 1));
+        history.record(entry("b", 3_000.0, Some(6_000.0), 2));
+        assert_eq!(history.stop_continuing("movie", "a"), 1);
+        assert_eq!(history.len(), 1);
+        assert_eq!(history.stop_continuing("movie", "missing"), 0);
     }
 
     #[test]
