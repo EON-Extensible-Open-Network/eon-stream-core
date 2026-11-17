@@ -226,6 +226,60 @@ impl<C: HttpClient> AddonClient<C> {
         })
     }
 
+    /// Search every searchable catalogue on every enabled addon.
+    ///
+    /// Stremio's search is one box over every installed addon, and this is that
+    /// box. The alternative -- searching one catalogue at a time, which is what
+    /// `browse <n> <query>` does -- means knowing which catalogue a title is
+    /// likely to be in before you look for it.
+    ///
+    /// Results are deduplicated by `(type, id)`, because several addons
+    /// legitimately describe the same film, and the first addon in the user's
+    /// order wins. Failures are per addon as everywhere else (madde 1): one
+    /// broken search addon must not empty the results.
+    pub fn search_all(&self, registry: &AddonRegistry, query: &str) -> Merged<MetaPreview> {
+        let mut items: Vec<(String, Vec<MetaPreview>)> = Vec::new();
+        let mut failures = Vec::new();
+        let mut seen: std::collections::HashSet<(String, String)> =
+            std::collections::HashSet::new();
+
+        for addon in registry.enabled() {
+            let mut found: Vec<MetaPreview> = Vec::new();
+            for catalog in addon.manifest.catalogs.iter().filter(|c| c.is_searchable()) {
+                match self.catalog(
+                    addon,
+                    &catalog.content_type,
+                    &catalog.id,
+                    &[("search", query)],
+                ) {
+                    Ok(page) => {
+                        for item in page {
+                            // Deduplicated here rather than by the caller, so
+                            // every consumer gets the same answer and nobody
+                            // has to remember to do it.
+                            let key = (item.content_type.clone(), item.id.clone());
+                            if seen.insert(key) {
+                                found.push(item);
+                            }
+                        }
+                    }
+                    Err(error) => {
+                        let summary = addon.summary();
+                        failures.push(AddonFailure {
+                            addon_id: summary.id,
+                            addon_name: summary.name,
+                            error,
+                        });
+                    }
+                }
+            }
+            if !found.is_empty() {
+                items.push((addon.manifest.id.clone(), found));
+            }
+        }
+        Merged { items, failures }
+    }
+
     /// Ask every enabled addon that offers `subtitles` for this item.
     pub fn subtitles_from_all(
         &self,

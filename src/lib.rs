@@ -91,10 +91,13 @@
 pub mod address;
 pub mod client;
 pub mod error;
+pub mod fuzzy;
 pub mod health;
 pub mod history;
 pub mod http;
 pub mod i18n;
+pub mod language;
+pub mod library;
 pub mod manifest;
 pub mod module;
 pub mod modules;
@@ -113,10 +116,12 @@ pub mod update;
 pub use address::AddonAddress;
 pub use client::{AddonClient, Merged};
 pub use error::{AddonFailure, Error, Result};
+pub use fuzzy::{suggest, Suggestion};
 pub use health::{AddonHealth, HealthTracker};
 pub use history::{WatchEntry, WatchHistory};
 pub use http::{HttpClient, HttpResponse, Limits};
 pub use i18n::{Catalog as MessageCatalog, Messages};
+pub use library::{Library, LibraryEntry, LibraryOrder};
 pub use manifest::{AddonManifest, Catalog, Resource, ADDON_API_MAJOR};
 pub use module::{
     BuildProfile, ModuleKind, ModuleManifest, Permission, Platform, RuntimeKind, SignatureEnvelope,

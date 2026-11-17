@@ -89,6 +89,31 @@ pub struct Meta {
     /// Episodes or parts, for series and similar types.
     #[serde(default, deserialize_with = "crate::serde_lax::null_to_default")]
     pub videos: Vec<Video>,
+    /// Trailers, as the older Stremio shape: a `ytId` per entry.
+    #[serde(default, deserialize_with = "crate::serde_lax::null_to_default")]
+    pub trailers: Vec<Trailer>,
+    /// Trailers, as the newer shape: a stream object each.
+    ///
+    /// Both exist in the wild and addons send one or the other, so both are
+    /// read. A client that handled only the newer shape would show no trailer
+    /// for most of Cinemeta.
+    #[serde(
+        default,
+        rename = "trailerStreams",
+        deserialize_with = "crate::serde_lax::null_to_default"
+    )]
+    pub trailer_streams: Vec<Stream>,
+}
+
+/// A trailer in the older `trailers` form.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Trailer {
+    /// YouTube video id.
+    #[serde(default, rename = "ytId")]
+    pub yt_id: Option<String>,
+    /// What kind of clip it is: `Trailer`, `Clip` and so on.
+    #[serde(default, rename = "type")]
+    pub kind: Option<String>,
 }
 
 impl Meta {
@@ -105,6 +130,33 @@ impl Meta {
             .iter()
             .filter(|v| v.season == Some(season))
             .collect()
+    }
+
+    /// A URL for the trailer, if the addon offered one.
+    ///
+    /// Prefers the newer `trailerStreams` shape and falls back to a `ytId`,
+    /// which is what Cinemeta still sends. A YouTube id becomes a watch URL
+    /// for mpv's `ytdl` hook to resolve — the same path a YouTube *source*
+    /// takes, so it needs `yt-dlp` present and fails the same way without it.
+    #[must_use]
+    pub fn trailer_url(&self) -> Option<String> {
+        if let Some(url) = self
+            .trailer_streams
+            .iter()
+            .find_map(|stream| match stream.source() {
+                Some(StreamSource::Direct(url)) => Some(url.to_owned()),
+                Some(StreamSource::YouTube(id)) => {
+                    Some(format!("https://www.youtube.com/watch?v={id}"))
+                }
+                _ => None,
+            })
+        {
+            return Some(url);
+        }
+        self.trailers
+            .iter()
+            .find_map(|trailer| trailer.yt_id.as_deref())
+            .map(|id| format!("https://www.youtube.com/watch?v={id}"))
     }
 
     /// Season numbers present, ascending, without duplicates.
@@ -389,7 +441,24 @@ impl Stream {
         if let Some(size) = self.behavior_hints.video_size {
             return Some(size);
         }
-        parse_size(self.title.as_deref().or(self.description.as_deref())?)
+        // All three label fields, the same set `StreamFacts::read` uses for
+        // resolution and codec. Addons are inconsistent about which one
+        // carries the quality markers, and reading the size from only two of
+        // them meant a source stating its size in `name` was treated as
+        // stating no size at all -- which quietly broke sorting by size.
+        for field in [
+            self.title.as_deref(),
+            self.description.as_deref(),
+            self.name.as_deref(),
+        ]
+        .into_iter()
+        .flatten()
+        {
+            if let Some(size) = parse_size(field) {
+                return Some(size);
+            }
+        }
+        None
     }
 }
 
@@ -538,4 +607,105 @@ pub struct AddonCatalogEntry {
 pub(crate) struct AddonCatalogResponse {
     #[serde(default, deserialize_with = "crate::serde_lax::null_to_default")]
     pub addons: Vec<AddonCatalogEntry>,
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_trailer_is_read_from_either_shape() {
+        // Both exist in the wild. Handling only the newer one would show no
+        // trailer for most of Cinemeta, which still sends `ytId`.
+        let older: Meta = serde_json::from_str(
+            r#"{"id":"tt1","type":"movie","name":"A Film",
+                "trailers":[{"ytId":"abc123","type":"Trailer"}]}"#,
+        )
+        .unwrap();
+        assert_eq!(
+            older.trailer_url().as_deref(),
+            Some("https://www.youtube.com/watch?v=abc123")
+        );
+
+        let newer: Meta = serde_json::from_str(
+            r#"{"id":"tt2","type":"movie","name":"B Film",
+                "trailerStreams":[{"ytId":"xyz789","title":"Trailer"}]}"#,
+        )
+        .unwrap();
+        assert_eq!(
+            newer.trailer_url().as_deref(),
+            Some("https://www.youtube.com/watch?v=xyz789")
+        );
+    }
+
+    #[test]
+    fn the_newer_shape_wins_when_an_addon_sends_both() {
+        let both: Meta = serde_json::from_str(
+            r#"{"id":"tt3","type":"movie","name":"C",
+                "trailers":[{"ytId":"old"}],
+                "trailerStreams":[{"url":"https://cdn.example.org/t.mp4"}]}"#,
+        )
+        .unwrap();
+        assert_eq!(
+            both.trailer_url().as_deref(),
+            Some("https://cdn.example.org/t.mp4")
+        );
+    }
+
+    #[test]
+    fn no_trailer_is_none_rather_than_an_empty_url() {
+        let bare: Meta = serde_json::from_str(r#"{"id":"tt4","type":"movie","name":"D"}"#).unwrap();
+        assert!(bare.trailer_url().is_none());
+
+        // A trailer entry with nothing playable in it is still no trailer.
+        let useless: Meta = serde_json::from_str(
+            r#"{"id":"tt5","type":"movie","name":"E","trailers":[{"type":"Clip"}]}"#,
+        )
+        .unwrap();
+        assert!(useless.trailer_url().is_none());
+    }
+
+    #[test]
+    fn a_size_in_the_name_field_is_read_like_one_in_the_title() {
+        // Addons are inconsistent about which label field carries the quality
+        // markers. Reading the size from only `title` and `description` meant
+        // a source stating it in `name` counted as stating no size, which
+        // silently broke sorting by size.
+        let in_name: Stream =
+            serde_json::from_str(r#"{"name":"Film 1080p 2.4 GB","url":"https://x/v.mkv"}"#)
+                .unwrap();
+        assert!(
+            in_name.size_bytes().is_some(),
+            "a size in `name` must count"
+        );
+
+        let in_title: Stream = serde_json::from_str(
+            r#"{"name":"Film","title":"1080p 2.4 GB","url":"https://x/v.mkv"}"#,
+        )
+        .unwrap();
+        assert_eq!(in_name.size_bytes(), in_title.size_bytes());
+
+        // An explicit hint still wins over anything parsed from prose.
+        let hinted: Stream = serde_json::from_str(
+            r#"{"name":"Film 2.4 GB","url":"https://x/v.mkv",
+                "behaviorHints":{"videoSize":1234}}"#,
+        )
+        .unwrap();
+        assert_eq!(hinted.size_bytes(), Some(1234));
+
+        let sizeless: Stream =
+            serde_json::from_str(r#"{"name":"Film 1080p","url":"https://x/v.mkv"}"#).unwrap();
+        assert!(sizeless.size_bytes().is_none());
+    }
+
+    #[test]
+    fn a_null_trailer_list_is_read_as_empty() {
+        // Cinemeta sends explicit nulls where arrays belong; see serde_lax.
+        let nulled: Meta = serde_json::from_str(
+            r#"{"id":"tt6","type":"movie","name":"F","trailers":null,"trailerStreams":null}"#,
+        )
+        .unwrap();
+        assert!(nulled.trailer_url().is_none());
+    }
 }

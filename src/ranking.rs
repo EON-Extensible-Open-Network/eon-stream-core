@@ -392,11 +392,14 @@ fn compare(
             facts
                 .audio_languages
                 .iter()
+                // Through the language table rather than by string equality: a
+                // preference of `tur` has to match a label of `tr`, and `tur`
+                // is not a prefix of `tr` either. See `crate::language`.
                 .filter_map(|language| {
-                    preferences
-                        .preferred_audio_languages
-                        .iter()
-                        .position(|wanted| wanted == language)
+                    crate::language::preference_rank(
+                        language,
+                        &preferences.preferred_audio_languages,
+                    )
                 })
                 .min()
                 .unwrap_or(usize::MAX)

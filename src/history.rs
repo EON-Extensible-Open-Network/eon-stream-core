@@ -244,6 +244,20 @@ impl WatchHistory {
         result
     }
 
+    /// Every name that has been watched, for use as a correction vocabulary.
+    ///
+    /// Search corrects a query only towards titles that exist (see
+    /// [`crate::fuzzy`]), and what someone has already watched is the cheapest
+    /// and most relevant such list there is: it needs no network and it is
+    /// made of things that person was actually looking for.
+    #[must_use]
+    pub fn names(&self) -> Vec<&str> {
+        let mut names: Vec<&str> = self.entries.values().map(|e| e.name.as_str()).collect();
+        names.sort_unstable();
+        names.dedup();
+        names
+    }
+
     /// Forget one item.
     pub fn forget(&mut self, content_type: &str, id: &str) -> bool {
         self.entries.remove(&Self::key(content_type, id)).is_some()
