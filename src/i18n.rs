@@ -415,6 +415,19 @@ mod tests {
     }
 
     #[test]
+    fn every_known_language_has_a_name_in_every_catalogue() {
+        // The settings picker offers `language::known()` and labels each one
+        // from the catalogue. A code without a name would show up as its key.
+        for locale in SHIPPED_LOCALES {
+            let catalog = shipped(locale).unwrap();
+            for code in crate::language::known() {
+                let key = format!("ui.lang.{code}");
+                assert!(catalog.get(&key).is_some(), "{locale} has no {key}");
+            }
+        }
+    }
+
+    #[test]
     fn the_audit_catches_what_it_claims_to() {
         // A guard that never fails is a guard nobody should trust.
         let fallback = Catalog::parse("en", r#"{"a":"one {0}","b":"two","c":"three"}"#).unwrap();

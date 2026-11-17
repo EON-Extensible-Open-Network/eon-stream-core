@@ -101,6 +101,17 @@ pub fn canonical(label: &str) -> Option<&'static str> {
         .find_map(|row| row.iter().any(|alias| *alias == wanted).then(|| row[0]))
 }
 
+/// Every language the table knows, by canonical two-letter code, in table
+/// order.
+///
+/// This is what a picker offers. A viewer choosing from a list cannot type a
+/// language nobody will ever match, which a free-text box let them do -- and
+/// each code here has a name in the interface catalogue (`ui.lang.<code>`),
+/// which a test in `i18n` holds to.
+pub fn known() -> impl Iterator<Item = &'static str> {
+    ALIASES.iter().map(|row| row[0])
+}
+
 /// Whether two labels name the same language.
 ///
 /// Known languages are compared through the table; anything the table does not
