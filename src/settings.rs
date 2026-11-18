@@ -110,7 +110,16 @@ pub struct TorrentSettings {
     pub keep_files: bool,
     /// How many megabytes to pull ahead of the playhead before starting.
     pub prebuffer_megabytes: u32,
+    /// The most disk the torrent cache may use, in megabytes. `0` means
+    /// automatic: a quarter of the disk's free space, at least 4 GB and at
+    /// most 50 GB. Otherwise 2048 MB at least. The host also holds it under
+    /// the disk's free space, whatever it is set to.
+    pub cache_limit_megabytes: u32,
 }
+
+/// The smallest cache limit that may be set: a few minutes of a 4K stream
+/// behind and ahead of the playhead.
+pub const MIN_CACHE_LIMIT_MEGABYTES: u32 = 2048;
 
 impl Default for TorrentSettings {
     fn default() -> Self {
@@ -124,6 +133,7 @@ impl Default for TorrentSettings {
             seed_after_playback: true,
             keep_files: false,
             prebuffer_megabytes: 16,
+            cache_limit_megabytes: 0,
         }
     }
 }
@@ -299,6 +309,12 @@ impl Settings {
             return Err(Error::InvalidSettings(format!(
                 "playback.subtitleScale {} is outside 0.5-3",
                 self.playback.subtitle_scale
+            )));
+        }
+        let limit = self.torrent.cache_limit_megabytes;
+        if limit != 0 && limit < MIN_CACHE_LIMIT_MEGABYTES {
+            return Err(Error::InvalidSettings(format!(
+                "torrent.cacheLimitMegabytes {limit} is below {MIN_CACHE_LIMIT_MEGABYTES}; 0 means automatic"
             )));
         }
         if self.torrent.peer_limit == 0 || self.torrent.peer_limit > 1000 {
@@ -608,6 +624,17 @@ mod tests {
         assert!(settings.validate().is_err());
         settings.playback.resume_after_seconds = f64::INFINITY;
         assert!(settings.validate().is_err());
+    }
+
+    #[test]
+    fn a_cache_limit_is_automatic_or_at_least_two_gigabytes() {
+        let mut settings = Settings::default();
+        assert_eq!(settings.torrent.cache_limit_megabytes, 0);
+        assert!(settings.validate().is_ok());
+        settings.torrent.cache_limit_megabytes = 1000;
+        assert!(settings.validate().is_err());
+        settings.torrent.cache_limit_megabytes = 100 * 1024;
+        assert!(settings.validate().is_ok());
     }
 
     #[test]
