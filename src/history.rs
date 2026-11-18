@@ -162,6 +162,12 @@ impl WatchHistory {
         format!("{content_type}:{id}")
     }
 
+    /// Every entry, in no particular order -- what the recommendations on the
+    /// device read their taste from.
+    pub fn entries(&self) -> impl Iterator<Item = &WatchEntry> {
+        self.entries.values()
+    }
+
     /// Record or update where playback got to.
     ///
     /// Only the fields that were supplied are overwritten, so a later update

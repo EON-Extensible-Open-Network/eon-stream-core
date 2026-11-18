@@ -5,6 +5,17 @@ begins at 0.1.0; nothing is released yet.
 
 ## [Unreleased]
 
+### Added — for the recommendations and the community (app v0.3)
+
+- `MetaPreview` carries `genres`, `country` and `language` when a catalogue sends them,
+  and `Meta` carries `country` and `language`. Read through two lenient deserialisers
+  (`serde_lax::words`, `serde_lax::text`): a list, a single word or a string, and anything
+  else as nothing — one addon's odd shape must not cost a row its titles.
+- `WatchHistory::entries`, every entry, for the recommendations worked out on the device.
+- Interface strings for the side menu, paged search, the window start mode, the
+  recommendations, profiles' PINs and children's profiles, skip markers and the whole
+  community area, in English and Turkish.
+
 ### Added — the addon protocol client
 
 Adding an addon and browsing it now works end to end.

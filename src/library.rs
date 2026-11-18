@@ -460,6 +460,9 @@ mod tests {
             description: None,
             release_info: Some("2008-2013".to_owned()),
             imdb_rating: Some("9.5".to_owned()),
+            genres: Vec::new(),
+            country: None,
+            language: None,
         };
         let mut library = Library::new();
         assert!(library.save_preview(&preview, Some("com.linvo.cinemeta"), 42));

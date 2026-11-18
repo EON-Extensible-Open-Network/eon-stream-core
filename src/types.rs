@@ -38,6 +38,16 @@ pub struct MetaPreview {
     /// IMDb rating, as text because addons send both numbers and strings.
     #[serde(default, rename = "imdbRating")]
     pub imdb_rating: Option<String>,
+    /// Genres, when the catalogue sends them (Cinemeta does). What the
+    /// recommendations on the device are made of.
+    #[serde(default, deserialize_with = "crate::serde_lax::words")]
+    pub genres: Vec<String>,
+    /// Countries of production, as the addon wrote them.
+    #[serde(default, deserialize_with = "crate::serde_lax::text")]
+    pub country: Option<String>,
+    /// Original language, for the addons that say.
+    #[serde(default, deserialize_with = "crate::serde_lax::text")]
+    pub language: Option<String>,
 }
 
 impl MetaPreview {
@@ -83,6 +93,12 @@ pub struct Meta {
     /// Genres.
     #[serde(default, deserialize_with = "crate::serde_lax::null_to_default")]
     pub genres: Vec<String>,
+    /// Countries of production, as the addon wrote them.
+    #[serde(default, deserialize_with = "crate::serde_lax::text")]
+    pub country: Option<String>,
+    /// Original language, for the addons that say.
+    #[serde(default, deserialize_with = "crate::serde_lax::text")]
+    pub language: Option<String>,
     /// Cast.
     #[serde(default, deserialize_with = "crate::serde_lax::null_to_default")]
     pub cast: Vec<String>,
