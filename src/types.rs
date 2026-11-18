@@ -77,6 +77,9 @@ pub struct Meta {
     /// Runtime, as the addon wrote it.
     #[serde(default)]
     pub runtime: Option<String>,
+    /// The IMDb score as the addon wrote it ("8.8"), when it gives one.
+    #[serde(default, rename = "imdbRating")]
+    pub imdb_rating: Option<String>,
     /// Genres.
     #[serde(default, deserialize_with = "crate::serde_lax::null_to_default")]
     pub genres: Vec<String>,

@@ -350,6 +350,8 @@
   "ui.community.signout": "Çıkış yap",
   "ui.community.theiraverage": "ortalaması",
   "ui.community.title": "Topluluk ne diyor",
+  "ui.community.top": "Topluluğun en iyileri",
+  "ui.community.topempty": "Henüz beş puanı olan bir yapım yok.",
   "ui.community.unfriend": "Arkadaşlıktan çıkar",
   "ui.community.username": "Kullanıcı adı",
   "ui.community.useserver": "Bu sunucuyu kullan",

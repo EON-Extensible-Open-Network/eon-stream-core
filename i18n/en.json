@@ -350,6 +350,8 @@
   "ui.community.signout": "Sign out",
   "ui.community.theiraverage": "their average",
   "ui.community.title": "What the community thinks",
+  "ui.community.top": "The community's best",
+  "ui.community.topempty": "No title has five scores yet.",
   "ui.community.unfriend": "Remove friend",
   "ui.community.username": "Username",
   "ui.community.useserver": "Use this server",
